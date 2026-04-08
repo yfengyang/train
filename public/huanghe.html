@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>黄河路站 - 时刻表</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 16px; }
+        .container { max-width: 500px; margin: 0 auto; }
+
+        .header { background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
+        .station-name { font-size: 24px; font-weight: bold; color: #667eea; margin-bottom: 4px; }
+        .station-desc { font-size: 14px; color: #666; }
+
+        .current-card { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 16px; padding: 24px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); color: white; text-align: center; }
+        .current-label { font-size: 14px; opacity: 0.9; margin-bottom: 8px; }
+        .current-countdown { font-size: 72px; font-weight: bold; line-height: 1; margin-bottom: 4px; }
+        .current-unit { font-size: 18px; opacity: 0.9; margin-bottom: 16px; }
+        .current-info { font-size: 16px; background: rgba(255,255,255,0.2); padding: 10px 20px; border-radius: 25px; display: inline-block; }
+        .current-info .arrow { margin: 0 8px; }
+
+        .info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .info-card { background: white; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .info-card .label { font-size: 12px; color: #999; margin-bottom: 4px; }
+        .info-card .value { font-size: 20px; font-weight: bold; color: #333; }
+        .info-card .value.outbound { color: #667eea; }
+        .info-card .value.return { color: #f5576c; }
+
+        .timetable { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .timetable-title { padding: 12px 16px; background: #667eea; color: white; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .timetable-header { padding: 12px 16px; background: #f8f9fa; font-weight: bold; display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; font-size: 12px; color: #666; }
+        .schedule-item { padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; border-bottom: 1px solid #eee; align-items: center; transition: background 0.3s; }
+        .schedule-item:last-child { border-bottom: none; }
+        .schedule-item.highlight { background: #e8f4ff; }
+        .schedule-item.departed { opacity: 0.5; }
+
+        .time { font-weight: bold; color: #333; font-size: 15px; }
+        .countdown { font-size: 13px; color: #667eea; font-weight: 500; }
+        .countdown.soon { color: #f5576c; font-weight: bold; }
+        .status { padding: 4px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
+        .status.waiting { background: #e8f5e9; color: #2e7d32; }
+        .status.boarding { background: #e3f2fd; color: #1565c0; }
+        .status.departed { background: #eceff1; color: #546e7a; }
+        .status.arrived { background: #fce4ec; color: #c2185b; }
+
+        .no-trains { padding: 40px; text-align: center; color: #999; }
+
+        .footer { text-align: center; padding: 20px; color: rgba(255,255,255,0.7); font-size: 12px; }
+
+        @media (max-width: 360px) {
+            .current-countdown { font-size: 56px; }
+            .station-name { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="station-name">🚉 黄河路站</div>
+            <div class="station-desc">始发站 · 发往牛行车站</div>
+        </div>
+
+        <div class="current-card">
+            <div class="current-label">下一班发车倒计时</div>
+            <div class="current-countdown" id="countdown">--</div>
+            <div class="current-unit">分钟</div>
+            <div class="current-info">
+                <span id="depTime">--:--</span>
+                <span class="arrow">→</span>
+                <span>牛行车站</span>
+            </div>
+        </div>
+
+        <div class="info-cards">
+            <div class="info-card">
+                <div class="label">今日去程班次</div>
+                <div class="value outbound" id="outboundCount">0</div>
+            </div>
+            <div class="info-card">
+                <div class="label">剩余候车</div>
+                <div class="value outbound" id="remainingCount">0</div>
+            </div>
+        </div>
+
+        <div class="timetable">
+            <div class="timetable-title">📅 发车时刻表</div>
+            <div class="timetable-header">
+                <div>发车时间</div>
+                <div>候车倒计时</div>
+                <div>状态</div>
+            </div>
+            <div id="scheduleList">
+                <div class="no-trains">加载中...</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <span id="lastUpdate">--</span> · 自动刷新中
+        </div>
+    </div>
+
+    <script>
+        let schedules = [];
+        let ws = null;
+
+        // 站点标识
+        const STATION = '黄河路站';
+
+        // 计算发车倒计时
+        function getDepartureCountdown(schedule) {
+            const now = new Date();
+            const [h, m] = schedule.departure.split(':').map(Number);
+            const depTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+            const diff = (depTime - now) / 1000 / 60;
+            if (diff < -60) return null;
+            return Math.max(0, Math.ceil(diff));
+        }
+
+        // 获取黄河路站去程班次
+        function getOutboundSchedules() {
+            const now = new Date();
+            return schedules.filter(s => {
+                if (s.from !== STATION) return false;
+                const [h, m] = s.departure.split(':').map(Number);
+                const depTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+                const diff = (depTime - now) / 1000 / 60;
+                return diff > -60;
+            }).sort((a, b) => a.departure.localeCompare(b.departure));
+        }
+
+        // 获取下一班
+        function getNextDeparture() {
+            const now = new Date();
+            let next = null;
+            let minDiff = Infinity;
+
+            schedules.forEach(s => {
+                if (s.from !== STATION) return;
+                const [h, m] = s.departure.split(':').map(Number);
+                const depTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+                const diff = (depTime - now) / 1000 / 60;
+                if (diff >= 0 && diff < minDiff) {
+                    minDiff = diff;
+                    next = s;
+                }
+            });
+
+            return next;
+        }
+
+        // 渲染时刻表
+        function renderSchedules() {
+            const outbound = getOutboundSchedules();
+            const next = getNextDeparture();
+            const now = new Date();
+
+            // 更新统计
+            document.getElementById('outboundCount').textContent = outbound.length;
+            document.getElementById('remainingCount').textContent = outbound.filter(s => {
+                const [h, m] = s.departure.split(':').map(Number);
+                const depTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+                return depTime > now;
+            }).length;
+
+            // 更新倒计时卡片
+            const countdownEl = document.getElementById('countdown');
+            const depTimeEl = document.getElementById('depTime');
+            if (next) {
+                const waitMins = getDepartureCountdown(next);
+                countdownEl.textContent = waitMins !== null ? waitMins : '--';
+                depTimeEl.textContent = next.departure;
+            } else {
+                countdownEl.textContent = '--';
+                depTimeEl.textContent = '今日已结束';
+            }
+
+            // 渲染列表
+            const list = document.getElementById('scheduleList');
+            if (outbound.length === 0) {
+                list.innerHTML = '<div class="no-trains">今日班次已结束</div>';
+                return;
+            }
+
+            list.innerHTML = outbound.map(s => {
+                const waitMins = getDepartureCountdown(s);
+                const isNext = next && s.id === next.id && s.departure === next.departure;
+                const isDeparted = s.manual_departed || s.status === '已发车' || s.status === '已到达';
+
+                let statusHtml = '';
+                if (isDeparted) {
+                    statusHtml = '<span class="status departed">已发车</span>';
+                } else if (waitMins !== null && waitMins <= 5) {
+                    statusHtml = '<span class="status boarding">即将发车</span>';
+                } else {
+                    statusHtml = '<span class="status waiting">候车中</span>';
+                }
+
+                return `
+                    <div class="schedule-item ${isNext ? 'highlight' : ''} ${isDeparted ? 'departed' : ''}">
+                        <div class="time">${s.departure}</div>
+                        <div class="countdown ${waitMins !== null && waitMins <= 10 ? 'soon' : ''}">${waitMins !== null ? waitMins + '分钟' : '--'}</div>
+                        <div>${statusHtml}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // WebSocket连接
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname;
+            const wsPort = parseInt(window.location.port) + 1;
+            const wsUrl = `${protocol}//${host}:${wsPort}`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => console.log('[WS] Connected');
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'init' || data.type === 'update' || data.type === 'reload') {
+                            schedules = data.schedules || [];
+                            renderSchedules();
+                            document.getElementById('lastUpdate').textContent = `更新: ${new Date().toLocaleTimeString()}`;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+                ws.onclose = () => setTimeout(connectWebSocket, 5000);
+                ws.onerror = () => ws.close();
+            } catch (e) {
+                setTimeout(connectWebSocket, 5000);
+            }
+        }
+
+        // HTTP轮询备用
+        async function pollData() {
+            try {
+                const res = await fetch('/api/trains');
+                const data = await res.json();
+                if (data.success) {
+                    schedules = data.schedules || [];
+                    renderSchedules();
+                    document.getElementById('lastUpdate').textContent = `更新: ${new Date().toLocaleTimeString()}`;
+                }
+            } catch (e) {
+                console.error('[POLL] Error:', e);
+            }
+        }
+
+        // 启动
+        function init() {
+            connectWebSocket();
+            pollData();
+            setInterval(pollData, 10000);
+            setInterval(renderSchedules, 60000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

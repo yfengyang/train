@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>火车时刻表 - 后台管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f6fa; min-height: 100vh; }
+
+        .login-screen { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .login-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 360px; }
+        .login-box h1 { font-size: 24px; margin-bottom: 8px; color: #333; text-align: center; }
+        .login-box .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+        .login-box input { width: 100%; padding: 14px 16px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 16px; outline: none; transition: border-color 0.2s; }
+        .login-box input:focus { border-color: #4a90d9; }
+        .login-box button { width: 100%; padding: 14px; background: #4a90d9; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+        .login-box button:hover { background: #3a7bc8; }
+        .login-box .error { color: #e74c3c; font-size: 14px; text-align: center; margin-top: 12px; display: none; }
+
+        .admin-screen { display: none; }
+        .header { background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%); color: white; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 20px; margin-bottom: 4px; }
+        .header .subtitle { opacity: 0.9; font-size: 14px; }
+        .header .logout { float: right; margin-top: -40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-align: center; }
+        .stat-card .number { font-size: 32px; font-weight: bold; color: #4a90d9; }
+        .stat-card .label { color: #666; font-size: 14px; margin-top: 4px; }
+
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; overflow: hidden; }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .card-header h2 { font-size: 16px; color: #333; }
+
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: #4a90d9; color: white; }
+        .btn-primary:hover { background: #3a7bc8; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-success:hover { background: #219a52; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-warning { background: #f39c12; color: white; }
+        .btn-warning:hover { background: #d68910; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-loading { opacity: 0.7; pointer-events: none; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; color: #333; font-size: 13px; }
+        td { font-size: 14px; color: #555; }
+        tr:hover { background: #f8f9fa; }
+        tr:last-child td { border-bottom: none; }
+
+        .direction-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .direction-outbound { background: #e3f2fd; color: #1976d2; }
+        .direction-return { background: #fce4ec; color: #c2185b; }
+
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; }
+        .status-waiting { background: #fff3e0; color: #ef6c00; }
+        .status-departed { background: #eceff1; color: #546e7a; }
+
+        .depart-btn { padding: 6px 14px; font-size: 12px; }
+        .depart-btn.departed { background: #27ae60; }
+        .depart-btn.cancel { background: #6c757d; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { font-size: 18px; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        .modal-close:hover { color: #333; }
+        .modal-body { padding: 20px; }
+        .modal-footer { padding: 16px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 12px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 14px; color: #333; font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 12px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+        .form-group input:focus, .form-group select:focus { border-color: #4a90d9; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        .toast { position: fixed; top: 20px; right: 20px; padding: 16px 24px; border-radius: 8px; color: white; font-size: 14px; z-index: 2000; transform: translateX(120%); transition: transform 0.3s; }
+        .toast.show { transform: translateX(0); }
+        .toast.success { background: #27ae60; }
+        .toast.error { background: #e74c3c; }
+        .toast.info { background: #4a90d9; }
+
+        .info-text { font-size: 12px; color: #666; margin-top: 4px; }
+
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            table { font-size: 12px; }
+            th, td { padding: 8px; }
+            .form-row { grid-template-columns: 1fr; }
+            .card-header { flex-direction: column; align-items: flex-start; }
+            .card-header .btn-group { width: 100%; display: flex; gap: 8px; flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录页面 -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <h1>🔐 管理员登录</h1>
+            <p class="subtitle">火车时刻表后台管理系统</p>
+            <input type="password" id="passwordInput" placeholder="请输入管理员密码" onkeypress="if(event.key==='Enter')login()">
+            <button onclick="login()">登 录</button>
+            <p class="error" id="loginError">密码错误，请重试</p>
+        </div>
+    </div>
+
+    <!-- 管理页面 -->
+    <div class="admin-screen" id="adminScreen">
+        <div class="header">
+            <h1>🚂 火车时刻表管理后台</h1>
+            <p class="subtitle">黄河路站 ⟷ 牛行车站</p>
+            <button class="logout" onclick="logout()">退出登录</button>
+        </div>
+
+        <div class="container">
+            <!-- 统计 -->
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="number" id="totalCount">0</div>
+                    <div class="label">总班次</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="outboundCount">0</div>
+                    <div class="label">去程班次</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="returnCount">0</div>
+                    <div class="label">返程班次</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="departedCount">0</div>
+                    <div class="label">已发车</div>
+                </div>
+            </div>
+
+            <!-- 发车控制 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>🚃 发车控制</h2>
+                    <button class="btn btn-warning btn-sm" onclick="resetAll()">重置所有班次</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>方向</th>
+                            <th>路线</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="departureTable">
+                        <tr><td colspan="5" style="text-align:center;color:#999;padding:40px;">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 时刻表管理 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>📋 时刻表配置</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-warning btn-sm" onclick="showPasswordModal()">修改密码</button>
+                        <button class="btn btn-success btn-sm" onclick="showAddModal()">+ 添加班次</button>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>班次</th>
+                            <th>起点</th>
+                            <th>终点</th>
+                            <th>发车时间</th>
+                            <th>到达时间</th>
+                            <th>间隔</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleTable">
+                        <tr><td colspan="7" style="text-align:center;color:#999;padding:40px;">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑班次弹窗 -->
+    <div class="modal" id="scheduleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">添加班次</h3>
+                <button class="modal-close" onclick="closeModal('scheduleModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editIndex">
+                <div class="form-group">
+                    <label>班次编号</label>
+                    <select id="scheduleId">
+                        <option value="S001">S001 (去程)</option>
+                        <option value="S002">S002 (返程)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>运行方向</label>
+                    <select id="scheduleDirection">
+                        <option value="outbound">去程 (黄河路站 → 牛行车站)</option>
+                        <option value="return">返程 (牛行车站 → 黄河路站)</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>起点站</label>
+                        <input type="text" id="scheduleFrom" value="黄河路站">
+                    </div>
+                    <div class="form-group">
+                        <label>终点站</label>
+                        <input type="text" id="scheduleTo" value="牛行车站">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>发车时间</label>
+                        <input type="time" id="scheduleDeparture" value="08:00">
+                    </div>
+                    <div class="form-group">
+                        <label>到达时间</label>
+                        <input type="time" id="scheduleArrival" value="08:45">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>发车间隔（分钟）</label>
+                    <input type="number" id="scheduleInterval" value="20" min="1" max="120">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" style="background:#ddd;color:#333" onclick="closeModal('scheduleModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveSchedule()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 密码弹窗 -->
+    <div class="modal" id="passwordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>修改管理员密码</h3>
+                <button class="modal-close" onclick="closeModal('passwordModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>原密码</label>
+                    <input type="password" id="oldPassword" placeholder="请输入原密码">
+                </div>
+                <div class="form-group">
+                    <label>新密码</label>
+                    <input type="password" id="newPassword" placeholder="请输入新密码">
+                </div>
+                <div class="form-group">
+                    <label>确认新密码</label>
+                    <input type="password" id="confirmPassword" placeholder="请再次输入新密码">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" style="background:#ddd;color:#333" onclick="closeModal('passwordModal')">取消</button>
+                <button class="btn btn-primary" onclick="changePassword()">确认修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast提示 -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let currentPassword = '';
+        let timetable = [];  // 配置时刻表
+        let runtime = [];   // 运行时状态
+
+        // 登录
+        async function login() {
+            const pwd = document.getElementById('passwordInput').value;
+            if (!pwd) {
+                showError('请输入密码');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/admin/verify?password=${encodeURIComponent(pwd)}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    currentPassword = pwd;
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('adminScreen').style.display = 'block';
+                    loadData();
+                } else {
+                    showError('密码错误，请重试');
+                }
+            } catch (e) {
+                showError('连接失败，请检查服务器');
+            }
+        }
+
+        // 登出
+        function logout() {
+            currentPassword = '';
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('adminScreen').style.display = 'none';
+            document.getElementById('passwordInput').value = '';
+        }
+
+        // 加载数据
+        async function loadData() {
+            await Promise.all([loadTimetable(), loadRuntime()]);
+        }
+
+        // 加载时刻表配置
+        async function loadTimetable() {
+            try {
+                const res = await fetch('/api/admin/schedules');
+                const data = await res.json();
+                if (data.success) {
+                    timetable = data.schedules;
+                    renderTimetable();
+                    updateStats();
+                }
+            } catch (e) {
+                showToast('加载失败', 'error');
+            }
+        }
+
+        // 加载运行时状态
+        async function loadRuntime() {
+            try {
+                const res = await fetch('/api/admin/runtime');
+                const data = await res.json();
+                if (data.success) {
+                    runtime = data.schedules;
+                    renderDepartureTable();
+                }
+            } catch (e) {
+                console.error('Load runtime error:', e);
+            }
+        }
+
+        // 渲染发车控制表格
+        function renderDepartureTable() {
+            const tbody = document.getElementById('departureTable');
+
+            if (runtime.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:40px;">暂无数据</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = runtime.map((s, i) => {
+                const isDeparted = s.manual_departed || s.status === '已发车' || s.status === '已到达';
+                return `
+                    <tr>
+                        <td><strong>${s.departure}</strong></td>
+                        <td><span class="direction-badge direction-${s.direction}">${s.direction === 'outbound' ? '去程' : '返程'}</span></td>
+                        <td>${s.from} → ${s.to}</td>
+                        <td>
+                            <span class="status-badge ${isDeparted ? 'status-departed' : 'status-waiting'}">
+                                ${isDeparted ? '已发车' : '候车'}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-success btn-sm depart-btn ${isDeparted ? '' : 'departed'}" onclick="toggleDepart(${i})">
+                                ${isDeparted ? '取消发车' : '确认发车'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // 更新已发车统计
+            const departed = runtime.filter(s => s.manual_departed || s.status === '已发车' || s.status === '已到达').length;
+            document.getElementById('departedCount').textContent = departed;
+        }
+
+        // 渲染时刻表配置表格
+        function renderTimetable() {
+            const tbody = document.getElementById('scheduleTable');
+
+            if (timetable.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:40px;">暂无班次，请添加</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = timetable.map((s, i) => `
+                <tr>
+                    <td>${s.id}</td>
+                    <td>${s.from}</td>
+                    <td>${s.to}</td>
+                    <td>${s.departure}</td>
+                    <td>${s.arrival}</td>
+                    <td>${s.interval}分钟</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editSchedule(${i})">编辑</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSchedule(${i})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 更新统计
+        function updateStats() {
+            document.getElementById('totalCount').textContent = timetable.length;
+            document.getElementById('outboundCount').textContent = timetable.filter(s => s.direction === 'outbound').length;
+            document.getElementById('returnCount').textContent = timetable.filter(s => s.direction === 'return').length;
+        }
+
+        // 切换发车状态
+        async function toggleDepart(index) {
+            const schedule = runtime[index];
+            const isDeparted = schedule.manual_departed || schedule.status === '已发车' || schedule.status === '已到达';
+
+            try {
+                const res = await fetch('/api/admin/depart', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        password: currentPassword,
+                        index: index,
+                        departed: !isDeparted
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    await loadRuntime();
+                } else {
+                    showToast(data.error || '操作失败', 'error');
+                }
+            } catch (e) {
+                showToast('操作失败', 'error');
+            }
+        }
+
+        // 重置所有班次
+        async function resetAll() {
+            if (!confirm('确定要重置所有班次的发车状态吗？')) return;
+
+            try {
+                const res = await fetch('/api/admin/reset', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ password: currentPassword })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('已重置所有班次', 'success');
+                    await loadRuntime();
+                } else {
+                    showToast(data.error || '重置失败', 'error');
+                }
+            } catch (e) {
+                showToast('重置失败', 'error');
+            }
+        }
+
+        // 显示添加弹窗
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = '添加班次';
+            document.getElementById('editIndex').value = '';
+            document.getElementById('scheduleId').value = 'S001';
+            document.getElementById('scheduleDirection').value = 'outbound';
+            document.getElementById('scheduleFrom').value = '黄河路站';
+            document.getElementById('scheduleTo').value = '牛行车站';
+            document.getElementById('scheduleDeparture').value = '08:00';
+            document.getElementById('scheduleArrival').value = '08:45';
+            document.getElementById('scheduleInterval').value = '20';
+            openModal('scheduleModal');
+        }
+
+        // 编辑班次
+        function editSchedule(index) {
+            const s = timetable[index];
+            document.getElementById('modalTitle').textContent = '编辑班次';
+            document.getElementById('editIndex').value = index;
+            document.getElementById('scheduleId').value = s.id;
+            document.getElementById('scheduleDirection').value = s.direction;
+            document.getElementById('scheduleFrom').value = s.from;
+            document.getElementById('scheduleTo').value = s.to;
+            document.getElementById('scheduleDeparture').value = s.departure;
+            document.getElementById('scheduleArrival').value = s.arrival;
+            document.getElementById('scheduleInterval').value = s.interval;
+            openModal('scheduleModal');
+        }
+
+        // 保存班次
+        async function saveSchedule() {
+            const index = document.getElementById('editIndex').value;
+            const data = {
+                password: currentPassword,
+                id: document.getElementById('scheduleId').value,
+                direction: document.getElementById('scheduleDirection').value,
+                from: document.getElementById('scheduleFrom').value,
+                to: document.getElementById('scheduleTo').value,
+                departure: document.getElementById('scheduleDeparture').value,
+                arrival: document.getElementById('scheduleArrival').value,
+                interval: parseInt(document.getElementById('scheduleInterval').value)
+            };
+
+            try {
+                const url = index === '' ? '/api/admin/schedules' : '/api/admin/schedules/update';
+                if (index !== '') data.index = parseInt(index);
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    showToast(index === '' ? '添加成功' : '更新成功', 'success');
+                    closeModal('scheduleModal');
+                    await loadTimetable();
+                } else {
+                    showToast(result.error || '操作失败', 'error');
+                }
+            } catch (e) {
+                showToast('操作失败', 'error');
+            }
+        }
+
+        // 删除班次
+        async function deleteSchedule(index) {
+            if (!confirm('确定要删除这条班次吗？')) return;
+
+            try {
+                const res = await fetch('/api/admin/schedules/delete', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ password: currentPassword, index: index })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    await loadTimetable();
+                } else {
+                    showToast(data.error || '删除失败', 'error');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        // 修改密码
+        async function changePassword() {
+            const oldPwd = document.getElementById('oldPassword').value;
+            const newPwd = document.getElementById('newPassword').value;
+            const confirmPwd = document.getElementById('confirmPassword').value;
+
+            if (!oldPwd || !newPwd) {
+                showToast('请填写完整', 'error');
+                return;
+            }
+            if (newPwd !== confirmPwd) {
+                showToast('两次密码不一致', 'error');
+                return;
+            }
+            if (newPwd.length < 4) {
+                showToast('密码至少4位', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('密码修改成功', 'success');
+                    currentPassword = newPwd;
+                    closeModal('passwordModal');
+                    document.getElementById('oldPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                } else {
+                    showToast(data.error || '修改失败', 'error');
+                }
+            } catch (e) {
+                showToast('修改失败', 'error');
+            }
+        }
+
+        function showPasswordModal() {
+            document.getElementById('oldPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            openModal('passwordModal');
+        }
+
+        // 弹窗控制
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        // Toast提示
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('loginError');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
+
+        // 点击外部关闭弹窗
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        });
+
+        // 自动刷新运行时状态
+        setInterval(() => {
+            if (currentPassword) {
+                loadRuntime();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

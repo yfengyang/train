@@ -1,0 +1,122 @@
+{
+  "schedules": [
+    {
+      "id": "S001",
+      "direction": "outbound",
+      "from": "黄河路站",
+      "to": "牛行车站",
+      "departure": "11:00",
+      "arrival": "11:30",
+      "interval": 20
+    },
+    {
+      "id": "S001",
+      "direction": "outbound",
+      "from": "黄河路站",
+      "to": "牛行车站",
+      "departure": "17:40",
+      "arrival": "18:10",
+      "interval": 20
+    },
+    {
+      "id": "S001",
+      "direction": "outbound",
+      "from": "黄河路站",
+      "to": "牛行车站",
+      "departure": "09:00",
+      "arrival": "09:45",
+      "interval": 20
+    },
+    {
+      "id": "S001",
+      "direction": "outbound",
+      "from": "黄河路站",
+      "to": "牛行车站",
+      "departure": "09:30",
+      "arrival": "10:15",
+      "interval": 20
+    },
+    {
+      "id": "S001",
+      "direction": "outbound",
+      "from": "黄河路站",
+      "to": "牛行车站",
+      "departure": "10:00",
+      "arrival": "10:45",
+      "interval": 20
+    },
+    {
+      "id": "S002",
+      "direction": "return",
+      "from": "牛行车站",
+      "to": "黄河路站",
+      "departure": "18:20",
+      "arrival": "18:50",
+      "interval": 20
+    },
+    {
+      "id": "S002",
+      "direction": "return",
+      "from": "牛行车站",
+      "to": "黄河路站",
+      "departure": "07:15",
+      "arrival": "08:00",
+      "interval": 20
+    },
+    {
+      "id": "S002",
+      "direction": "return",
+      "from": "牛行车站",
+      "to": "黄河路站",
+      "departure": "07:45",
+      "arrival": "08:30",
+      "interval": 20
+    },
+    {
+      "id": "S002",
+      "direction": "return",
+      "from": "牛行车站",
+      "to": "黄河路站",
+      "departure": "08:15",
+      "arrival": "09:00",
+      "interval": 20
+    },
+    {
+      "id": "S002",
+      "direction": "return",
+      "from": "牛行车站",
+      "to": "黄河路站",
+      "departure": "08:45",
+      "arrival": "09:30",
+      "interval": 20
+    },
+    {
+      "id": "S002",
+      "direction": "return",
+      "from": "牛行车站",
+      "to": "黄河路站",
+      "departure": "09:15",
+      "arrival": "10:00",
+      "interval": 20
+    },
+    {
+      "id": "S002",
+      "direction": "return",
+      "from": "牛行车站",
+      "to": "黄河路站",
+      "departure": "09:45",
+      "arrival": "10:30",
+      "interval": 20
+    },
+    {
+      "id": "S002",
+      "direction": "return",
+      "from": "牛行车站",
+      "to": "黄河路站",
+      "departure": "10:15",
+      "arrival": "11:00",
+      "interval": 20
+    }
+  ],
+  "updated": "2026-04-07T16:44:20.363946"
+}
